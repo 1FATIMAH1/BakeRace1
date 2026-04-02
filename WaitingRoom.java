@@ -7,7 +7,7 @@ public class WaitingRoom {
     private ArrayList<String> players = new ArrayList<>();
 
     public void addPlayer(String name) {
-        if (!players.contains(name)) {
+        if (name != null && !name.isEmpty() && !players.contains(name)) {
             players.add(name);
         }
     }
