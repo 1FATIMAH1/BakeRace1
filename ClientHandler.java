@@ -27,14 +27,49 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
-
         try {
             String request;
 
             while ((request = in.readLine()) != null) {
 
-                if (request.startsWith("CONNECT")) {
+                if (request.startsWith("CONNECT|")) {
                     playerName = request.split("\\|")[1];
+                    broadcastConnected();
+                }
+
+                else if (request.equals("PLAY")) {
+                    waitingRoom.addPlayer(playerName);
+                    broadcastWaiting();
+                }
+            }
+
+        } catch (IOException e) {
+            System.out.println("Client disconnected");
+        }
+    }
+
+    private void broadcastConnected() {
+        StringBuilder names = new StringBuilder("CONNECTED|");
+
+        for (ClientHandler c : clients) {
+            if (c.playerName != null) {
+                names.append(c.playerName).append(",");
+            }
+        }
+
+        for (ClientHandler c : clients) {
+            c.out.println(names.toString());
+        }
+    }
+
+    private void broadcastWaiting() {
+        String list = "WAITING|" + waitingRoom.getPlayers();
+
+        for (ClientHandler c : clients) {
+            c.out.println(list);
+        }
+    }
+}                    playerName = request.split("\\|")[1];
                     broadcastConnected();
                 }
 
