@@ -56,45 +56,42 @@ public class BakeRaceClientFrame extends JFrame {
         }
     }
 
-    // =========================
-    // Screen 1: Intro
-    // =========================
     private JPanel createIntroPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/bakerace/resources/logo_bg.png");
+        BackgroundPanel panel = new BackgroundPanel("/resources/logo_bg.png .PNG");
         panel.setLayout(null);
 
-        JButton startButton = createImageButton("/bakerace/resources/start.btn.png");
-        startButton.setBounds(380, 500, 240, 90);
+        JButton startButton = createImageButton("/resources/start.btn.png", 420, 300);
+        startButton.setBounds(300,350, 420, 300);
         startButton.addActionListener(e -> cardLayout.show(mainPanel, "ABOUT"));
 
         panel.add(startButton);
         return panel;
     }
 
-    // =========================
-    // Screen 2: About Game
-    // =========================
     private JPanel createAboutPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/bakerace/resources/play_bg.png");
+        BackgroundPanel panel = new BackgroundPanel("/resources/play_bg.png .PNG");
         panel.setLayout(null);
 
-        JTextArea rulesText = new JTextArea();
-        rulesText.setText("Listen up, Bakers! 🔥🍰\n\n"
-                + "Each round gives you a clue.\n"
-                + "Type fast before time runs out ⏱️\n\n"
-                + "The fastest correct answer earns a point.\n"
-                + "Highest score wins! 🏆🔥");
-        rulesText.setEditable(false);
-        rulesText.setLineWrap(true);
-        rulesText.setWrapStyleWord(true);
-        rulesText.setOpaque(true);
-        rulesText.setBackground(new Color(255, 255, 255, 210));
-        rulesText.setForeground(new Color(80, 40, 20));
-        rulesText.setFont(new Font("SansSerif", Font.BOLD, 22));
-        rulesText.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        rulesText.setBounds(180, 140, 640, 220);
+       JTextArea rulesText = new JTextArea();
+rulesText.setText("Listen up, Bakers! 🔥🍰\n\n"
+        + "Each round gives you a clue.\n"
+        + "Type fast before time runs out ⏱️\n"
+        + "The fastest correct answer earns a point.\n"
+        + "Highest score wins! 🏆🔥");
 
-        JButton nextButton = createImageButton("/bakerace/resources/next.png");
+rulesText.setEditable(false);
+rulesText.setLineWrap(true);
+rulesText.setWrapStyleWord(true);
+
+rulesText.setOpaque(false);      // 🔥 بدون خلفية
+rulesText.setBackground(null);
+
+rulesText.setForeground(new Color(80, 40, 20)); // بني مناسب للبورد
+rulesText.setFont(new Font("SansSerif", Font.BOLD, 22));
+
+rulesText.setBounds(270, 240, 460, 170);
+
+        JButton nextButton = createImageButton("/resources/next.png", 220, 85);
         nextButton.setBounds(390, 500, 220, 85);
         nextButton.addActionListener(e -> cardLayout.show(mainPanel, "CONNECT"));
 
@@ -104,11 +101,8 @@ public class BakeRaceClientFrame extends JFrame {
         return panel;
     }
 
-    // =========================
-    // Screen 3: Connect
-    // =========================
     private JPanel createConnectPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/bakerace/resources/connect_bg.png");
+        BackgroundPanel panel = new BackgroundPanel("/resources/connect_bg.PNG");
         panel.setLayout(null);
 
         nameField = new JTextField();
@@ -134,10 +128,10 @@ public class BakeRaceClientFrame extends JFrame {
         JScrollPane msgScroll = new JScrollPane(messagesArea);
         msgScroll.setBounds(730, 130, 220, 180);
 
-        JButton connectBtn = createImageButton("/bakerace/resources/connect.btn.png");
+        JButton connectBtn = createImageButton("/resources/connect.btn.png", 220, 80);
         connectBtn.setBounds(300, 520, 220, 80);
 
-        JButton exitBtn = createImageButton("/bakerace/resources/exit.png");
+        JButton exitBtn = createImageButton("/resources/exit.png", 220, 80);
         exitBtn.setBounds(560, 520, 220, 80);
 
         connectBtn.addActionListener(e -> {
@@ -166,11 +160,8 @@ public class BakeRaceClientFrame extends JFrame {
         return panel;
     }
 
-    // =========================
-    // Screen 4: Waiting Room
-    // =========================
     private JPanel createWaitingPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/bakerace/resources/waitingRoom.png");
+        BackgroundPanel panel = new BackgroundPanel("/resources/waiting_bg.PNG");
         panel.setLayout(null);
 
         waitingArea = new JTextArea();
@@ -182,10 +173,10 @@ public class BakeRaceClientFrame extends JFrame {
         JScrollPane waitingScroll = new JScrollPane(waitingArea);
         waitingScroll.setBounds(290, 170, 420, 220);
 
-        JButton playBtn = createImageButton("/bakerace/resources/Play.btn.png");
+        JButton playBtn = createImageButton("/resources/Play.btn.png", 220, 80);
         playBtn.setBounds(300, 500, 220, 80);
 
-        JButton exitBtn = createImageButton("/bakerace/resources/exit.png");
+        JButton exitBtn = createImageButton("/resources/exit.png", 220, 80);
         exitBtn.setBounds(560, 500, 220, 80);
 
         playBtn.addActionListener(e -> {
@@ -203,9 +194,6 @@ public class BakeRaceClientFrame extends JFrame {
         return panel;
     }
 
-    // =========================
-    // Update methods from server
-    // =========================
     public void updateConnected(String data) {
         String text = data.replace("CONNECTED|", "").replace(",", "\n");
         if (connectedArea != null) {
@@ -220,11 +208,8 @@ public class BakeRaceClientFrame extends JFrame {
         }
     }
 
-    // =========================
-    // Helpers
-    // =========================
-    private JButton createImageButton(String path) {
-        ImageIcon icon = loadIcon(path);
+    private JButton createImageButton(String path, int width, int height) {
+        ImageIcon icon = loadIcon(path, width, height);
         JButton button;
 
         if (icon != null) {
@@ -240,7 +225,7 @@ public class BakeRaceClientFrame extends JFrame {
         return button;
     }
 
-    private ImageIcon loadIcon(String path) {
+    private ImageIcon loadIcon(String path, int width, int height) {
         try {
             java.net.URL imgURL = getClass().getResource(path);
             if (imgURL == null) {
@@ -250,7 +235,7 @@ public class BakeRaceClientFrame extends JFrame {
 
             ImageIcon originalIcon = new ImageIcon(imgURL);
             Image scaledImage = originalIcon.getImage().getScaledInstance(
-                    220, 80, Image.SCALE_SMOOTH);
+                    width, height, Image.SCALE_SMOOTH);
             return new ImageIcon(scaledImage);
 
         } catch (Exception e) {
