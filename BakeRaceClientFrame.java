@@ -116,8 +116,11 @@ public class BakeRaceClientFrame extends JFrame {
 
         JButton nextButton = createImageButton("/resources/next.png", 350, 450);
         nextButton.setBounds(320, 300, 350, 450);
-        nextButton.addActionListener(e -> cardLayout.show(mainPanel, "CONNECT"));
 
+nextButton.addActionListener(e -> {
+    playSound("/resources/next-sound.wav"); 
+    cardLayout.show(mainPanel, "CONNECT");
+});
         panel.add(rulesText);
         panel.add(nextButton);
 
@@ -125,7 +128,7 @@ public class BakeRaceClientFrame extends JFrame {
     }
 
     private JPanel createConnectPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/connect_bg.PNG");
+        BackgroundPanel panel = new BackgroundPanel("/resources/connect_bg.png");
         panel.setLayout(null);
 
         nameField = new JTextField();
