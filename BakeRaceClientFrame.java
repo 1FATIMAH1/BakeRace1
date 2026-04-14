@@ -22,7 +22,9 @@ public class BakeRaceClientFrame extends JFrame {
     private JLabel waitingTitle;
 
     private PrintWriter out;
-
+    private Clip currentClip;
+    
+    
     public BakeRaceClientFrame() {
         setTitle("BakeRace");
         setSize(1000, 650);
@@ -45,27 +47,44 @@ public class BakeRaceClientFrame extends JFrame {
         playSound("/resources/hello.wav");
     }
 
-    private void playSound(String path) {
-        try {
-            java.net.URL soundURL = getClass().getResource(path);
-            if (soundURL == null) {
-                System.out.println("SOUND NOT FOUND: " + path);
-                return;
-            }
+    
+private void playSound(String path) {
+    try {
+        stopCurrentSound();
 
-            AudioInputStream audio = AudioSystem.getAudioInputStream(soundURL);
-            Clip clip = AudioSystem.getClip();
-            clip.open(audio);
-            clip.start();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        java.net.URL soundURL = getClass().getResource(path);
+        if (soundURL == null) {
+            System.out.println("SOUND NOT FOUND: " + path);
+            return;
         }
+
+        AudioInputStream audio = AudioSystem.getAudioInputStream(soundURL);
+        currentClip = AudioSystem.getClip();
+        currentClip.open(audio);
+        currentClip.start();
+
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+}
+
+private void stopCurrentSound() {
+    try {
+        if (currentClip != null) {
+            if (currentClip.isRunning()) {
+                currentClip.stop();
+            }
+            currentClip.close();
+            currentClip = null;
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
 
     private void connectToServer() {
         try {
-            Socket socket = new Socket("10.6.199.181", 9090);
+            Socket socket = new Socket("localhost", 9090);
             out = new PrintWriter(socket.getOutputStream(), true);
 
             ServerConnection sc = new ServerConnection(socket, this);
@@ -87,10 +106,11 @@ public class BakeRaceClientFrame extends JFrame {
 
         JButton startButton = createImageButton("/resources/start.btn.png", 420, 300);
         startButton.setBounds(300, 350, 420, 300);
-        startButton.addActionListener(e -> {
-            playSound("/resources/intro.wav");
-            cardLayout.show(mainPanel, "ABOUT");
-        });
+startButton.addActionListener(e -> {
+    stopCurrentSound();
+    cardLayout.show(mainPanel, "ABOUT");
+    playSound("/resources/intro.wav");
+});
 
         panel.add(startButton);
         return panel;
@@ -118,10 +138,11 @@ public class BakeRaceClientFrame extends JFrame {
 
         JButton nextButton = createImageButton("/resources/next.png", 350, 450);
         nextButton.setBounds(320, 300, 350, 450);
-        nextButton.addActionListener(e -> {
-            playSound("/resources/next-sound.wav");
-            cardLayout.show(mainPanel, "CONNECT");
-        });
+nextButton.addActionListener(e -> {
+    stopCurrentSound();
+    cardLayout.show(mainPanel, "CONNECT");
+    playSound("/resources/next-sound.wav");
+});
 
         panel.add(rulesText);
         panel.add(nextButton);
