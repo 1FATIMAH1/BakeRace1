@@ -8,6 +8,9 @@ import java.net.Socket;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
 public class BakeRaceClientFrame extends JFrame {
 
@@ -15,16 +18,23 @@ public class BakeRaceClientFrame extends JFrame {
     private JPanel mainPanel;
 
     private JTextField nameField;
-    private JTextArea connectedArea;
-    private JTextArea waitingArea;
     private JTextArea messagesArea;
+
     private JLabel[] playerLabels;
     private JLabel waitingTitle;
 
+    private JPanel connectedNamesPanel;
+
+    private JTextPane questionArea;
+    private JLabel roundLabel;
+    private JLabel timerLabel;
+    private JTextField answerField;
+    private Timer roundTimer;
+    private int timeLeft = 15;
+
     private PrintWriter out;
     private Clip currentClip;
-    
-    
+
     public BakeRaceClientFrame() {
         setTitle("BakeRace");
         setSize(1000, 650);
@@ -36,9 +46,10 @@ public class BakeRaceClientFrame extends JFrame {
         mainPanel = new JPanel(cardLayout);
 
         mainPanel.add(createIntroPanel(), "INTRO");
-        mainPanel.add(createAboutPanel(), "ABOUT");
         mainPanel.add(createConnectPanel(), "CONNECT");
+        mainPanel.add(createConnectedListPanel(), "CONNECTED_LIST");
         mainPanel.add(createWaitingPanel(), "WAITING");
+        mainPanel.add(createGamePanel(), "GAME");
 
         add(mainPanel);
 
@@ -47,40 +58,39 @@ public class BakeRaceClientFrame extends JFrame {
         playSound("/resources/hello.wav");
     }
 
-    
-private void playSound(String path) {
-    try {
-        stopCurrentSound();
+    private void playSound(String path) {
+        try {
+            stopCurrentSound();
 
-        java.net.URL soundURL = getClass().getResource(path);
-        if (soundURL == null) {
-            System.out.println("SOUND NOT FOUND: " + path);
-            return;
-        }
-
-        AudioInputStream audio = AudioSystem.getAudioInputStream(soundURL);
-        currentClip = AudioSystem.getClip();
-        currentClip.open(audio);
-        currentClip.start();
-
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
-}
-
-private void stopCurrentSound() {
-    try {
-        if (currentClip != null) {
-            if (currentClip.isRunning()) {
-                currentClip.stop();
+            java.net.URL soundURL = getClass().getResource(path);
+            if (soundURL == null) {
+                System.out.println("SOUND NOT FOUND: " + path);
+                return;
             }
-            currentClip.close();
-            currentClip = null;
+
+            AudioInputStream audio = AudioSystem.getAudioInputStream(soundURL);
+            currentClip = AudioSystem.getClip();
+            currentClip.open(audio);
+            currentClip.start();
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-    } catch (Exception e) {
-        e.printStackTrace();
     }
-}
+
+    private void stopCurrentSound() {
+        try {
+            if (currentClip != null) {
+                if (currentClip.isRunning()) {
+                    currentClip.stop();
+                }
+                currentClip.close();
+                currentClip = null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private void connectToServer() {
         try {
@@ -106,46 +116,14 @@ private void stopCurrentSound() {
 
         JButton startButton = createImageButton("/resources/start.btn.png", 420, 300);
         startButton.setBounds(300, 350, 420, 300);
-startButton.addActionListener(e -> {
-    stopCurrentSound();
-    cardLayout.show(mainPanel, "ABOUT");
-    playSound("/resources/intro.wav");
-});
+
+        startButton.addActionListener(e -> {
+            stopCurrentSound();
+            cardLayout.show(mainPanel, "CONNECT");
+            playSound("/resources/intro.wav");
+        });
 
         panel.add(startButton);
-        return panel;
-    }
-
-    private JPanel createAboutPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/play_bg .png");
-        panel.setLayout(null);
-
-        JTextArea rulesText = new JTextArea();
-        rulesText.setText("Listen up, Bakers! 🔥🍰\n\n"
-                + "Each round gives you a clue.\n"
-                + "Type fast before time runs out ⏱️\n"
-                + "The fastest correct answer earns a point.\n"
-                + "Highest score wins! 🏆🔥");
-
-        rulesText.setEditable(false);
-        rulesText.setLineWrap(true);
-        rulesText.setWrapStyleWord(true);
-        rulesText.setOpaque(false);
-        rulesText.setBackground(null);
-        rulesText.setForeground(new Color(80, 40, 20));
-        rulesText.setFont(new Font("SansSerif", Font.BOLD, 22));
-        rulesText.setBounds(270, 240, 460, 170);
-
-        JButton nextButton = createImageButton("/resources/next.png", 350, 450);
-        nextButton.setBounds(320, 300, 350, 450);
-nextButton.addActionListener(e -> {
-    stopCurrentSound();
-    cardLayout.show(mainPanel, "CONNECT");
-    playSound("/resources/next-sound.wav");
-});
-
-        panel.add(rulesText);
-        panel.add(nextButton);
         return panel;
     }
 
@@ -164,33 +142,12 @@ nextButton.addActionListener(e -> {
         nameField.setBorder(BorderFactory.createLineBorder(new Color(180, 180, 180), 2));
         nameField.setMargin(new Insets(0, 70, 0, 0));
 
-        connectedArea = new JTextArea();
-        connectedArea.setEditable(false);
-        connectedArea.setFont(new Font("Monospaced", Font.BOLD, 18));
-        connectedArea.setOpaque(false);
-        connectedArea.setBackground(new Color(0, 0, 0, 0));
-        connectedArea.setBorder(null);
-
-JScrollPane connectedScroll = new JScrollPane(connectedArea);
-connectedScroll.setBounds(720, 220, 200, 150); 
-connectedScroll.setOpaque(false);
-connectedScroll.getViewport().setOpaque(false);
-connectedScroll.setBorder(null);
-connectedScroll.setBackground(new Color(0, 0, 0, 0));
-
         messagesArea = new JTextArea();
         messagesArea.setEditable(false);
         messagesArea.setFont(new Font("SansSerif", Font.BOLD, 16));
         messagesArea.setOpaque(false);
         messagesArea.setBackground(new Color(0, 0, 0, 0));
         messagesArea.setBorder(null);
-
-        JScrollPane msgScroll = new JScrollPane(messagesArea);
-        msgScroll.setBounds(0, 0, 0, 0);
-        msgScroll.setOpaque(false);
-        msgScroll.getViewport().setOpaque(false);
-        msgScroll.setBorder(null);
-        msgScroll.setBackground(new Color(0, 0, 0, 0));
 
         JButton connectBtn = createImageButton("/resources/connect.btn.PNG", 350, 350);
         connectBtn.setBounds(320, 260, 350, 350);
@@ -206,29 +163,55 @@ connectedScroll.setBackground(new Color(0, 0, 0, 0));
                 return;
             }
 
-            if (playerLabels != null && playerLabels.length > 0) {
-                for (int i = 0; i < playerLabels.length; i++) {
-                    playerLabels[i].setText("");
-                }
-                playerLabels[0].setText(name);
-            }
-
             if (out != null) {
                 out.println("CONNECT|" + name);
                 messagesArea.setText("Connected as: " + name);
-            } else {
-                messagesArea.setText("Connected as: " + name);
             }
 
-            cardLayout.show(mainPanel, "WAITING");
+            cardLayout.show(mainPanel, "CONNECTED_LIST");
         });
 
         exitBtn.addActionListener(e -> System.exit(0));
 
         panel.add(nameField);
-        panel.add(connectedScroll);
-        panel.add(msgScroll);
         panel.add(connectBtn);
+        panel.add(exitBtn);
+
+        return panel;
+    }
+
+    private JPanel createConnectedListPanel() {
+        BackgroundPanel panel = new BackgroundPanel("/resources/connectedList.png");
+        panel.setLayout(null);
+
+        connectedNamesPanel = new JPanel();
+        connectedNamesPanel.setLayout(new BoxLayout(connectedNamesPanel, BoxLayout.Y_AXIS));
+        connectedNamesPanel.setOpaque(false);
+
+        JScrollPane scrollPane = new JScrollPane(connectedNamesPanel);
+        scrollPane.setBounds(310, 230, 420, 270);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(null);
+        scrollPane.setBackground(new Color(0, 0, 0, 0));
+
+        JButton playBtn = createImageButton("/resources/Play.btn.png", 350, 270);
+        playBtn.setBounds(310, 380, 350, 270);
+
+        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
+        exitBtn.setBounds(770, 480, 220, 180);
+
+        playBtn.addActionListener(e -> {
+            if (out != null) {
+                out.println("PLAY");
+            }
+            cardLayout.show(mainPanel, "WAITING");
+        });
+
+        exitBtn.addActionListener(e -> System.exit(0));
+
+        panel.add(scrollPane);
+        panel.add(playBtn);
         panel.add(exitBtn);
 
         return panel;
@@ -238,32 +221,21 @@ connectedScroll.setBackground(new Color(0, 0, 0, 0));
         BackgroundPanel panel = new BackgroundPanel("/resources/waitingRoom.PNG");
         panel.setLayout(null);
 
-        waitingArea = new JTextArea();
-        waitingArea.setEditable(false);
-        waitingArea.setFont(new Font("SansSerif", Font.BOLD, 24));
-        waitingArea.setForeground(new Color(255, 235, 200));
-        waitingArea.setOpaque(false);
-        waitingArea.setBackground(new Color(0, 0, 0, 0));
-        waitingArea.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 10));
-        waitingArea.setLineWrap(true);
-        waitingArea.setWrapStyleWord(true);
-        waitingArea.setText("Connected players:\n");
-
-        waitingTitle = new JLabel("Connected players:");
+        waitingTitle = new JLabel("Waiting Bakers:");
         waitingTitle.setBounds(365, 225, 330, 40);
         waitingTitle.setFont(new Font("SansSerif", Font.BOLD, 26));
-        waitingTitle.setForeground(new Color(255, 235, 200));
+        waitingTitle.setForeground(Color.WHITE);
 
         playerLabels = new JLabel[5];
-        int startX = 350;   
-        int startY = 280;   
-        int gap = 54;       
+        int startX = 350;
+        int startY = 280;
+        int gap = 54;
 
         for (int i = 0; i < playerLabels.length; i++) {
             playerLabels[i] = new JLabel("");
             playerLabels[i].setBounds(startX, startY + (i * gap), 250, 30);
             playerLabels[i].setFont(new Font("SansSerif", Font.BOLD, 22));
-            playerLabels[i].setForeground(new Color(255, 235, 200));
+            playerLabels[i].setForeground(Color.WHITE);
             panel.add(playerLabels[i]);
         }
 
@@ -288,36 +260,182 @@ connectedScroll.setBackground(new Color(0, 0, 0, 0));
         return panel;
     }
 
-public void updateConnected(String data) {
-    String text = data.replace("CONNECTED|", "").replace(",", "\n");
+    private JPanel createGamePanel() {
+        BackgroundPanel panel = new BackgroundPanel("/resources/game_bg.png");
+        panel.setLayout(null);
 
-    if (connectedArea != null) {
-        connectedArea.setText(text);
+        roundLabel = new JLabel("Round 1 - Easy");
+        roundLabel.setBounds(330, 140, 300, 40);
+        roundLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        roundLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
+        roundLabel.setForeground(new Color(80, 40, 20));
+
+        timerLabel = new JLabel("15");
+        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 46));
+        timerLabel.setBounds(830, 45, 200, 50);
+        timerLabel.setForeground(Color.BLACK);
+
+        questionArea = new JTextPane();
+        questionArea.setText("");
+        questionArea.setEditable(false);
+        questionArea.setOpaque(false);
+        questionArea.setFont(new Font("SansSerif", Font.BOLD, 22));
+        questionArea.setForeground(new Color(50, 25, 10));
+        questionArea.setBounds(230, 220, 520, 140);
+        centerQuestionText();
+
+        answerField = new JTextField();
+        answerField.setFont(new Font("SansSerif", Font.BOLD, 22));
+        answerField.setBounds(280, 365, 420, 60);
+
+        JButton submitBtn = createImageButton("/resources/submit.png", 350, 250);
+        submitBtn.setBounds(310, 380, 350, 250);
+
+        JButton leaveBtn = createImageButton("/resources/leave.png", 260, 180);
+        leaveBtn.setBounds(770, 480, 250, 180);
+
+        submitBtn.addActionListener(e -> {
+            String answer = answerField.getText().trim();
+
+            if (!answer.isEmpty() && out != null) {
+                out.println("ANSWER|" + answer);
+                answerField.setText("");
+            }
+        });
+
+        leaveBtn.addActionListener(e -> {
+            if (out != null) {
+                out.println("LEAVE");
+            }
+            System.exit(0);
+        });
+
+        panel.add(roundLabel);
+        panel.add(timerLabel);
+        panel.add(questionArea);
+        panel.add(answerField);
+        panel.add(submitBtn);
+        panel.add(leaveBtn);
+
+        return panel;
     }
-}
+
+    public void showGameStarted() {
+        SwingUtilities.invokeLater(() -> cardLayout.show(mainPanel, "GAME"));
+    }
+
+    public void showRoundOne() {
+        SwingUtilities.invokeLater(() -> {
+            String question =
+                    "I am white powder used in baking.\n"
+                    + "Without me, cupcake batter cannot be made.\n\n"
+                    + "What am I?";
+
+            roundLabel.setText("Round 1 - Easy");
+            questionArea.setText(question);
+            centerQuestionText();
+            answerField.setText("");
+            startRoundOneTimer();
+        });
+    }
+
+    public void showCorrectAnswer(String playerName) {
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this, playerName + " answered correctly!");
+        });
+    }
+
+    private void centerQuestionText() {
+        StyledDocument doc = questionArea.getStyledDocument();
+        SimpleAttributeSet center = new SimpleAttributeSet();
+        StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+        doc.setParagraphAttributes(0, doc.getLength(), center, false);
+    }
+
+    private void startRoundOneTimer() {
+        if (roundTimer != null) {
+            roundTimer.stop();
+        }
+
+        timeLeft = 15;
+        timerLabel.setText(String.valueOf(timeLeft));
+        timerLabel.setForeground(Color.BLACK);
+
+        roundTimer = new Timer(1000, e -> {
+            timeLeft--;
+            timerLabel.setText(String.valueOf(timeLeft));
+
+            if (timeLeft <= 5) {
+                timerLabel.setForeground(Color.RED);
+            } else {
+                timerLabel.setForeground(Color.BLACK);
+            }
+
+            if (timeLeft <= 0) {
+                roundTimer.stop();
+                JOptionPane.showMessageDialog(this, "Time is up!");
+            }
+        });
+
+        roundTimer.start();
+    }
+
+    public void updateConnected(String data) {
+        SwingUtilities.invokeLater(() -> {
+            String text = data.replace("CONNECTED|", "").trim();
+
+            String[] names;
+            if (text.isEmpty()) {
+                names = new String[0];
+            } else {
+                names = text.split(",");
+            }
+
+            connectedNamesPanel.removeAll();
+
+            for (String n : names) {
+                String name = n.trim();
+
+                if (!name.isEmpty()) {
+                    JLabel label = new JLabel("   " + name);
+                    label.setFont(new Font("SansSerif", Font.BOLD, 28));
+                    label.setForeground(new Color(35, 15, 5));
+                    label.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    label.setBorder(BorderFactory.createEmptyBorder(5, 40, 5, 5));
+
+                    connectedNamesPanel.add(label);
+                }
+            }
+
+            connectedNamesPanel.revalidate();
+            connectedNamesPanel.repaint();
+        });
+    }
 
     public void updateWaiting(String data) {
-        String text = data
-                .replace("WAITING_LIST|", "")
-                .replace("WAITING|", "")
-                .trim();
+        SwingUtilities.invokeLater(() -> {
+            String text = data
+                    .replace("WAITING_LIST|", "")
+                    .replace("WAITING|", "")
+                    .trim();
 
-        String[] names;
-        if (text.isEmpty()) {
-            names = new String[0];
-        } else {
-            names = text.split(",");
-        }
-
-        if (playerLabels != null) {
-            for (int i = 0; i < playerLabels.length; i++) {
-                playerLabels[i].setText("");
+            String[] names;
+            if (text.isEmpty()) {
+                names = new String[0];
+            } else {
+                names = text.split(",");
             }
 
-            for (int i = 0; i < names.length && i < playerLabels.length; i++) {
-                playerLabels[i].setText(names[i].trim());
+            if (playerLabels != null) {
+                for (int i = 0; i < playerLabels.length; i++) {
+                    playerLabels[i].setText("");
+                }
+
+                for (int i = 0; i < names.length && i < playerLabels.length; i++) {
+                    playerLabels[i].setText(names[i].trim());
+                }
             }
-        }
+        });
     }
 
     private JButton createImageButton(String path, int width, int height) {
