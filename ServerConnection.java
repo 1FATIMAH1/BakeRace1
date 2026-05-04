@@ -29,10 +29,21 @@ public class ServerConnection implements Runnable {
 
             while ((response = in.readLine()) != null) {
 
-                if (response.startsWith("CONNECTED")) {
+                if (response.startsWith("CONNECTED|")) {
                     frame.updateConnected(response);
-                } else if (response.startsWith("WAITING")) {
+
+                } else if (response.startsWith("WAITING|")) {
                     frame.updateWaiting(response);
+
+                } else if (response.equals("GAME_STARTED")) {
+                    frame.showGameStarted();
+
+                } else if (response.equals("ROUND1")) {
+                    frame.showRoundOne();
+
+                } else if (response.startsWith("CORRECT|")) {
+                    String playerName = response.replace("CORRECT|", "");
+                    frame.showCorrectAnswer(playerName);
                 }
             }
 
