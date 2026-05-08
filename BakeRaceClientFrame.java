@@ -22,7 +22,7 @@ public class BakeRaceClientFrame extends JFrame {
 
     private JLabel[] playerLabels;
     private JLabel waitingTitle;
-
+    private JLabel winnerLabel;
     private JPanel connectedNamesPanel;
 
     private JTextPane questionArea;
@@ -36,6 +36,7 @@ public class BakeRaceClientFrame extends JFrame {
     private PrintWriter out;
     private Clip currentClip;
 
+ 
     public BakeRaceClientFrame() {
         setTitle("BakeRace");
         setSize(1000, 650);
@@ -51,6 +52,8 @@ public class BakeRaceClientFrame extends JFrame {
         mainPanel.add(createConnectedListPanel(), "CONNECTED_LIST");
         mainPanel.add(createWaitingPanel(), "WAITING");
         mainPanel.add(createGamePanel(), "GAME");
+        mainPanel.add(createWinnerPanel(), "WINNER");
+        mainPanel.add(createGameEndPanel(), "GAME_END");
 
         add(mainPanel);
 
@@ -172,7 +175,17 @@ public class BakeRaceClientFrame extends JFrame {
             cardLayout.show(mainPanel, "CONNECTED_LIST");
         });
 
-        exitBtn.addActionListener(e -> System.exit(0));
+exitBtn.addActionListener(e -> {
+
+    if (out != null) {
+
+        out.println("LEAVE");
+    }
+
+    dispose();
+
+    System.exit(0);
+});
 
         panel.add(nameField);
         panel.add(connectBtn);
@@ -209,7 +222,17 @@ public class BakeRaceClientFrame extends JFrame {
             cardLayout.show(mainPanel, "WAITING");
         });
 
-        exitBtn.addActionListener(e -> System.exit(0));
+exitBtn.addActionListener(e -> {
+
+    if (out != null) {
+
+        out.println("LEAVE");
+    }
+
+    dispose();
+
+    System.exit(0);
+});
 
         panel.add(scrollPane);
         panel.add(playBtn);
@@ -252,7 +275,17 @@ public class BakeRaceClientFrame extends JFrame {
             }
         });
 
-        exitBtn.addActionListener(e -> System.exit(0));
+exitBtn.addActionListener(e -> {
+
+    if (out != null) {
+
+        out.println("LEAVE");
+    }
+
+    dispose();
+
+    System.exit(0);
+});
 
         panel.add(waitingTitle);
         panel.add(playBtn);
@@ -492,13 +525,29 @@ public class BakeRaceClientFrame extends JFrame {
                     + "Without me, the batter stays lumpy.\n\n"
                     + "What am I?";
 
-            roundLabel.setText("Round 2 - Medium");
+            roundLabel.setText("Round 2");
             questionArea.setText(question);
             answerField.setText("");
             centerQuestionText();
             startRoundOneTimer();
         });
     }
+    public void showRoundThree() {
+
+    SwingUtilities.invokeLater(() -> {
+
+        String question
+                = "I keep cakes cold and fresh.\n"
+                + "Without me, frosting melts quickly.\n\n"
+                + "What am I?";
+
+        roundLabel.setText("Round 3 ");
+        questionArea.setText(question);
+        answerField.setText("");
+        centerQuestionText();
+        startRoundOneTimer();
+    });
+}
 
     public void updateScores(String response) {
         SwingUtilities.invokeLater(() -> {
@@ -516,6 +565,54 @@ public class BakeRaceClientFrame extends JFrame {
             scoreArea.setText(result.toString());
         });
     }
+    public void showWinner(String response) {
+    String result = response.replace("GAME_ENDED|", "");
+
+    if (result.toLowerCase().contains("no winner")) {
+        cardLayout.show(mainPanel, "GAME_END");
+    } else {
+        winnerLabel.setText(result);
+        cardLayout.show(mainPanel, "WINNER");
+    }
+}
+    private JPanel createWinnerPanel() {
+    BackgroundPanel panel = new BackgroundPanel("/resources/winner.png");
+    panel.setLayout(null);
+
+    winnerLabel = new JLabel("");
+    winnerLabel.setBounds(250, 450, 500, 60);
+    winnerLabel.setFont(new Font("SansSerif", Font.BOLD, 34));
+    winnerLabel.setForeground(Color.WHITE);
+    winnerLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+    panel.add(winnerLabel);
+
+    JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
+    exitBtn.setBounds(730, 430, 220, 180);
+    exitBtn.addActionListener(e -> System.exit(0));
+
+    panel.add(exitBtn);
+    return panel;
+}
+private JPanel createGameEndPanel() {
+    BackgroundPanel panel = new BackgroundPanel("/resources/gameEnd.png");
+    panel.setLayout(null);
+
+    JLabel noWinner = new JLabel("No Winner!");
+    noWinner.setBounds(250, 300, 500, 60);
+    noWinner.setFont(new Font("SansSerif", Font.BOLD, 34));
+    noWinner.setForeground(Color.WHITE);
+    noWinner.setHorizontalAlignment(SwingConstants.CENTER);
+
+    panel.add(noWinner);
+
+        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
+        exitBtn.setBounds(770, 480, 220, 180);
+    exitBtn.addActionListener(e -> System.exit(0));
+
+    panel.add(exitBtn);
+    return panel;
+}
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new BakeRaceClientFrame().setVisible(true));
