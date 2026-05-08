@@ -41,9 +41,15 @@ public class ServerConnection implements Runnable {
                 } else if (response.equals("ROUND1")) {
                     frame.showRoundOne();
 
+                } else if (response.equals("ROUND2")) {
+                    frame.showRoundTwo();
+
                 } else if (response.startsWith("CORRECT|")) {
                     String playerName = response.replace("CORRECT|", "");
                     frame.showCorrectAnswer(playerName);
+
+                } else if (response.startsWith("SCORES|")) {
+                    frame.updateScores(response);
                 }
             }
 
