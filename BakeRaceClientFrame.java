@@ -580,15 +580,15 @@ exitBtn.addActionListener(e -> {
     panel.setLayout(null);
 
     winnerLabel = new JLabel("");
-    winnerLabel.setBounds(250, 450, 500, 60);
+    winnerLabel.setBounds(250, 500, 500, 60);
     winnerLabel.setFont(new Font("SansSerif", Font.BOLD, 34));
     winnerLabel.setForeground(Color.WHITE);
     winnerLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
     panel.add(winnerLabel);
 
-    JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-    exitBtn.setBounds(730, 430, 220, 180);
+        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
+        exitBtn.setBounds(770, 480, 220, 180);
     exitBtn.addActionListener(e -> System.exit(0));
 
     panel.add(exitBtn);
@@ -599,7 +599,7 @@ private JPanel createGameEndPanel() {
     panel.setLayout(null);
 
     JLabel noWinner = new JLabel("No Winner!");
-    noWinner.setBounds(250, 300, 500, 60);
+    noWinner.setBounds(250, 500, 500, 60);
     noWinner.setFont(new Font("SansSerif", Font.BOLD, 34));
     noWinner.setForeground(Color.WHITE);
     noWinner.setHorizontalAlignment(SwingConstants.CENTER);
