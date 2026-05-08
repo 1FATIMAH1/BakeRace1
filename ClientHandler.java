@@ -56,24 +56,60 @@ public class ClientHandler implements Runnable {
                 } else if (request.startsWith("ANSWER|")) {
                     checkAnswer(request);
 
-                } else if (request.equals("LEAVE")) {
+                }
+
+                // =========================
+                // CONNECTED LIST REMOVE
+                // =========================
+                else if (request.equals("LEAVE")) {
+
+                    clients.remove(this);
+
                     waitingRoom.removePlayer(playerName);
+
+                    scores.remove(playerName);
+
+                    broadcastConnected();
+
                     broadcastWaiting();
+
+                    client.close();
+
+                    break;
                 }
             }
 
         } catch (IOException e) {
+
+            // =========================
+            // DISCONNECTED PLAYER
+            // =========================
+            clients.remove(this);
+
+            waitingRoom.removePlayer(playerName);
+
+            scores.remove(playerName);
+
+            broadcastConnected();
+
+            broadcastWaiting();
+
             System.out.println("Client disconnected");
         }
     }
 
-    private void checkAnswer(String request) {
-        if (currentRound == 1) {
-            checkRoundOneAnswer(request);
-        } else if (currentRound == 2) {
-            checkRoundTwoAnswer(request);
-        }
+private void checkAnswer(String request) {
+
+    if (currentRound == 1) {
+        checkRoundOneAnswer(request);
+
+    } else if (currentRound == 2) {
+        checkRoundTwoAnswer(request);
+
+    } else if (currentRound == 3) {
+        checkRoundThreeAnswer(request);
     }
+}
 
     private void checkRoundOneAnswer(String request) {
         String answer = request.replace("ANSWER|", "").trim();
@@ -101,13 +137,56 @@ public class ClientHandler implements Runnable {
     private void checkRoundTwoAnswer(String request) {
         String answer = request.replace("ANSWER|", "").trim();
 
-        if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
-            roundAnswered = true;
-            addScore(playerName);
-            broadcast("CORRECT|" + playerName);
-            broadcastScores();
+if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
+
+    roundAnswered = true;
+    addScore(playerName);
+    broadcast("CORRECT|" + playerName);
+    broadcastScores();
+    currentRound = 3;
+    new Thread(() -> {
+
+        try {
+            Thread.sleep(2000);
+            roundAnswered = false;
+            broadcast("ROUND3");
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+
+    }).start();
+}
     }
+    private void checkRoundThreeAnswer(String request) {
+
+    String answer =
+            request.replace(
+                    "ANSWER|",
+                    ""
+            ).trim();
+
+    if (answer.equalsIgnoreCase("fridge")
+            && !roundAnswered) {
+
+        roundAnswered = true;
+
+        addScore(playerName);
+
+        broadcast(
+                "CORRECT|" + playerName
+        );
+
+        broadcastScores();
+
+        String winner =
+                getWinner();
+
+        broadcast(
+                "GAME_ENDED|" + winner
+        );
+    }
+}
 
     private void broadcastConnected() {
         StringBuilder names = new StringBuilder("CONNECTED|");
@@ -160,11 +239,8 @@ public class ClientHandler implements Runnable {
         }
 
         waitingRoom.setGameStarted(true);
-
         currentRound = 1;
-
         roundAnswered = false;
-
         scores.clear();
 
         for (ClientHandler c : clients) {
@@ -202,4 +278,29 @@ public class ClientHandler implements Runnable {
             }
         }
     }
+    private String getWinner() {
+
+    String winner = "";
+
+    int highestScore = -1;
+
+    for (String name : scores.keySet()) {
+
+        int score = scores.get(name);
+
+        if (score > highestScore) {
+
+            highestScore = score;
+
+            winner = name;
+        }
+    }
+
+    if (winner.isEmpty()) {
+
+        return "No Winner";
+    }
+
+    return winner + " Wins!";
+}
 }
