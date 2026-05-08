@@ -14,7 +14,7 @@ public class ClientHandler implements Runnable {
     private WaitingRoom waitingRoom;
     private String playerName;
 
-    private static final int MAX_PLAYERS = 4;
+    private static final int MAX_PLAYERS = 1;
     private static boolean timerStarted = false;
     private static int currentRound = 1;
     private static boolean roundAnswered = false;
