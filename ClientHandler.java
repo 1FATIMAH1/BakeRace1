@@ -31,72 +31,64 @@ public class ClientHandler implements Runnable {
         in = new BufferedReader(new InputStreamReader(client.getInputStream()));
         out = new PrintWriter(client.getOutputStream(), true);
     }
+@Override
+public void run() {
+    try {
+        String request;
 
-    @Override
-    public void run() {
-        try {
-            String request;
+        while ((request = in.readLine()) != null) {
 
-            while ((request = in.readLine()) != null) {
+            if (request.startsWith("CONNECT|")) {
+                playerName = request.split("\\|")[1];
+                broadcastConnected();
 
-                if (request.startsWith("CONNECT|")) {
-                    playerName = request.split("\\|")[1];
-                    broadcastConnected();
+            } else if (request.equals("PLAY")) {
+                waitingRoom.addPlayer(playerName);
+                broadcastWaiting();
 
-                } else if (request.equals("PLAY")) {
-                    waitingRoom.addPlayer(playerName);
-                    broadcastWaiting();
-
-                    if (waitingRoom.getPlayerCount() >= MAX_PLAYERS && !waitingRoom.isGameStarted()) {
-                        startGameRoundOne();
-                    } else {
-                        startThirtySecondTimer();
-                    }
-
-                } else if (request.startsWith("ANSWER|")) {
-                    checkAnswer(request);
-
+                if (waitingRoom.getPlayerCount() >= MAX_PLAYERS && !waitingRoom.isGameStarted()) {
+                    startGameRoundOne();
+                } else {
+                    startThirtySecondTimer();
                 }
 
-                // =========================
-                // CONNECTED LIST REMOVE
-                // =========================
-                else if (request.equals("LEAVE")) {
+            } else if (request.startsWith("ANSWER|")) {
+                checkAnswer(request);
 
-                    clients.remove(this);
+            } else if (request.equals("LEAVE")) {
+                clients.remove(this);
+                waitingRoom.removePlayer(playerName);
+                scores.remove(playerName);
 
-                    waitingRoom.removePlayer(playerName);
+                broadcastConnected();
+                broadcastWaiting();
 
-                    scores.remove(playerName);
-
-                    broadcastConnected();
-
-                    broadcastWaiting();
-
-                    client.close();
-
-                    break;
+                if (waitingRoom.getPlayerCount() == 1) {
+                    String winner = waitingRoom.getPlayers();
+                    broadcast("GAME_ENDED|" + winner + " Wins!");
                 }
+
+                client.close();
+                break;
             }
-
-        } catch (IOException e) {
-
-            // =========================
-            // DISCONNECTED PLAYER
-            // =========================
-            clients.remove(this);
-
-            waitingRoom.removePlayer(playerName);
-
-            scores.remove(playerName);
-
-            broadcastConnected();
-
-            broadcastWaiting();
-
-            System.out.println("Client disconnected");
         }
+
+    } catch (IOException e) {
+        clients.remove(this);
+        waitingRoom.removePlayer(playerName);
+        scores.remove(playerName);
+
+        broadcastConnected();
+        broadcastWaiting();
+
+        if (waitingRoom.getPlayerCount() == 1) {
+            String winner = waitingRoom.getPlayers();
+            broadcast("GAME_ENDED|" + winner + " Wins!");
+        }
+
+        System.out.println("Client disconnected");
     }
+} }
 
 private void checkAnswer(String request) {
 
