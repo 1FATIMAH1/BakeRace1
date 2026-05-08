@@ -23,6 +23,7 @@ public class BakeRaceServer {
                     new ClientHandler(client, clients, waitingRoom);
 
             clients.add(clientThread);
+            
             new Thread(clientThread).start();
         }
     }
