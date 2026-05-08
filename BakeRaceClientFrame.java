@@ -19,11 +19,15 @@ public class BakeRaceClientFrame extends JFrame {
 
     private JTextField nameField;
     private JTextArea messagesArea;
+private JLabel firstPlaceLabel;
 
+private JLabel secondPlaceLabel;
+
+private JLabel thirdPlaceLabel;
     private JLabel[] playerLabels;
     private JLabel waitingTitle;
-    private JLabel winnerLabel;
-    private JPanel connectedNamesPanel;
+
+private JPanel connectedNamesPanel;
 
     private JTextPane questionArea;
     private JLabel roundLabel;
@@ -44,6 +48,22 @@ public class BakeRaceClientFrame extends JFrame {
         setLocationRelativeTo(null);
         setResizable(false);
 
+        addWindowListener(new java.awt.event.WindowAdapter() {
+
+    @Override
+    public void windowClosing(
+            java.awt.event.WindowEvent e) {
+
+        if (out != null) {
+
+            out.println("LEAVE");
+        }
+
+        dispose();
+
+        System.exit(0);
+    }
+});
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
 
@@ -250,7 +270,7 @@ exitBtn.addActionListener(e -> {
         waitingTitle.setFont(new Font("SansSerif", Font.BOLD, 26));
         waitingTitle.setForeground(Color.WHITE);
 
-        playerLabels = new JLabel[5];
+        playerLabels = new JLabel[4];
         int startX = 350;
         int startY = 280;
         int gap = 54;
@@ -298,7 +318,7 @@ exitBtn.addActionListener(e -> {
         BackgroundPanel panel = new BackgroundPanel("/resources/game_bg.png");
         panel.setLayout(null);
 
-        roundLabel = new JLabel("Round 1 - Easy");
+        roundLabel = new JLabel("Round 1");
         roundLabel.setBounds(330, 140, 300, 40);
         roundLabel.setHorizontalAlignment(SwingConstants.CENTER);
         roundLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
@@ -415,10 +435,20 @@ exitBtn.addActionListener(e -> {
                 timerLabel.setForeground(Color.BLACK);
             }
 
-            if (timeLeft <= 0) {
-                roundTimer.stop();
-                JOptionPane.showMessageDialog(this, "Time is up!");
-            }
+if (timeLeft <= 0) {
+
+    roundTimer.stop();
+
+    JOptionPane.showMessageDialog(
+            this,
+            "Time is up!"
+    );
+
+    if (out != null) {
+
+        out.println("TIME_UP");
+    }
+}
         });
 
         roundTimer.start();
@@ -565,35 +595,134 @@ exitBtn.addActionListener(e -> {
             scoreArea.setText(result.toString());
         });
     }
-    public void showWinner(String response) {
-    String result = response.replace("GAME_ENDED|", "");
+public void showWinner(String response) {
 
-    if (result.toLowerCase().contains("no winner")) {
+    String result =
+            response.replace("GAME_ENDED|", "");
+
+    if (result.equalsIgnoreCase("No winner")) {
+
         cardLayout.show(mainPanel, "GAME_END");
-    } else {
-        winnerLabel.setText(result);
-        cardLayout.show(mainPanel, "WINNER");
+
+        return;
     }
+
+    String[] winners = result.split("\n");
+
+    firstPlaceLabel.setText("");
+
+    secondPlaceLabel.setText("");
+
+    thirdPlaceLabel.setText("");
+
+    if (winners.length > 0) {
+
+        firstPlaceLabel.setText(
+                  winners[0]
+        );
+    }
+
+    if (winners.length > 1) {
+
+        secondPlaceLabel.setText(
+                 winners[1]
+        );
+    }
+
+    if (winners.length > 2) {
+
+        thirdPlaceLabel.setText(
+              winners[2]
+        );
+    }
+
+    cardLayout.show(mainPanel, "WINNER");
 }
-    private JPanel createWinnerPanel() {
-    BackgroundPanel panel = new BackgroundPanel("/resources/winner.png");
+
+private JPanel createWinnerPanel() {
+
+    BackgroundPanel panel =
+            new BackgroundPanel("/resources/winner.png");
+
     panel.setLayout(null);
 
-    winnerLabel = new JLabel("");
-    winnerLabel.setBounds(250, 500, 500, 60);
-    winnerLabel.setFont(new Font("SansSerif", Font.BOLD, 34));
-    winnerLabel.setForeground(Color.WHITE);
-    winnerLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-    panel.add(winnerLabel);
 
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-    exitBtn.addActionListener(e -> System.exit(0));
+ // FIRST PLACE
+firstPlaceLabel = new JLabel("");
+
+firstPlaceLabel.setBounds(390, 430, 220, 40);
+
+firstPlaceLabel.setFont(
+        new Font("SansSerif", Font.BOLD, 30)
+);
+
+firstPlaceLabel.setForeground(Color.BLACK);
+
+firstPlaceLabel.setHorizontalAlignment(
+        SwingConstants.CENTER
+);
+
+
+// SECOND PLACE
+secondPlaceLabel = new JLabel("");
+
+secondPlaceLabel.setBounds(150, 470, 220, 40);
+
+secondPlaceLabel.setFont(
+        new Font("SansSerif", Font.BOLD, 24)
+);
+
+secondPlaceLabel.setForeground(Color.BLACK);
+
+secondPlaceLabel.setHorizontalAlignment(
+        SwingConstants.CENTER
+);
+
+
+// THIRD PLACE
+thirdPlaceLabel = new JLabel("");
+
+thirdPlaceLabel.setBounds(630, 500, 220, 40);
+
+thirdPlaceLabel.setFont(
+        new Font("SansSerif", Font.BOLD, 24)
+);
+
+thirdPlaceLabel.setForeground(Color.BLACK);
+
+thirdPlaceLabel.setHorizontalAlignment(
+        SwingConstants.CENTER
+);
+
+
+
+    panel.add(firstPlaceLabel);
+
+    panel.add(secondPlaceLabel);
+
+    panel.add(thirdPlaceLabel);
+
+
+
+    JButton exitBtn =
+            createImageButton(
+                    "/resources/exit.png",
+                    220,
+                    180
+            );
+
+    exitBtn.setBounds(770, 480, 220, 180);
+
+    exitBtn.addActionListener(
+            e -> System.exit(0)
+    );
 
     panel.add(exitBtn);
+
     return panel;
 }
+
 private JPanel createGameEndPanel() {
     BackgroundPanel panel = new BackgroundPanel("/resources/gameEnd.png");
     panel.setLayout(null);
