@@ -3,6 +3,7 @@ package bakerace;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class ClientHandler implements Runnable {
 
@@ -15,10 +16,13 @@ public class ClientHandler implements Runnable {
 
     private static final int MAX_PLAYERS = 4;
     private static boolean timerStarted = false;
+    private static int currentRound = 1;
+    private static boolean roundAnswered = false;
+    private static HashMap<String, Integer> scores = new HashMap<>();
 
     public ClientHandler(Socket socket,
-                         ArrayList<ClientHandler> clients,
-                         WaitingRoom waitingRoom) throws IOException {
+            ArrayList<ClientHandler> clients,
+            WaitingRoom waitingRoom) throws IOException {
 
         this.client = socket;
         this.clients = clients;
@@ -50,7 +54,7 @@ public class ClientHandler implements Runnable {
                     }
 
                 } else if (request.startsWith("ANSWER|")) {
-                    checkRoundOneAnswer(request);
+                    checkAnswer(request);
 
                 } else if (request.equals("LEAVE")) {
                     waitingRoom.removePlayer(playerName);
@@ -63,11 +67,45 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    private void checkAnswer(String request) {
+        if (currentRound == 1) {
+            checkRoundOneAnswer(request);
+        } else if (currentRound == 2) {
+            checkRoundTwoAnswer(request);
+        }
+    }
+
     private void checkRoundOneAnswer(String request) {
         String answer = request.replace("ANSWER|", "").trim();
 
-        if (answer.equalsIgnoreCase("flour")) {
+        if (answer.equalsIgnoreCase("flour") && !roundAnswered) {
+            roundAnswered = true;
+            addScore(playerName);
             broadcast("CORRECT|" + playerName);
+            broadcastScores();
+
+            currentRound = 2;
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(2000);
+                    roundAnswered = false;
+                    broadcast("ROUND2");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
+    }
+
+    private void checkRoundTwoAnswer(String request) {
+        String answer = request.replace("ANSWER|", "").trim();
+
+        if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
+            roundAnswered = true;
+            addScore(playerName);
+            broadcast("CORRECT|" + playerName);
+            broadcastScores();
         }
     }
 
@@ -123,6 +161,12 @@ public class ClientHandler implements Runnable {
 
         waitingRoom.setGameStarted(true);
 
+        currentRound = 1;
+
+        roundAnswered = false;
+
+        scores.clear();
+
         for (ClientHandler c : clients) {
             if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
                 c.out.println("GAME_STARTED");
@@ -135,6 +179,26 @@ public class ClientHandler implements Runnable {
         for (ClientHandler c : clients) {
             if (c.playerName != null) {
                 c.out.println(message);
+            }
+        }
+
+    }
+
+    private void addScore(String name) {
+        int newScore = scores.getOrDefault(name, 0) + 1;
+        scores.put(name, newScore);
+    }
+
+    private void broadcastScores() {
+        StringBuilder scoreMessage = new StringBuilder("SCORES|");
+
+        for (String name : scores.keySet()) {
+            scoreMessage.append(name).append(":").append(scores.get(name)).append(",");
+        }
+
+        for (ClientHandler c : clients) {
+            if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
+                c.out.println(scoreMessage.toString());
             }
         }
     }
