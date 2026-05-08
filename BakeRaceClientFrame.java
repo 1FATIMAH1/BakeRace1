@@ -28,6 +28,7 @@ public class BakeRaceClientFrame extends JFrame {
     private JTextPane questionArea;
     private JLabel roundLabel;
     private JLabel timerLabel;
+    private JTextArea scoreArea;
     private JTextField answerField;
     private Timer roundTimer;
     private int timeLeft = 15;
@@ -288,6 +289,15 @@ public class BakeRaceClientFrame extends JFrame {
         answerField.setFont(new Font("SansSerif", Font.BOLD, 22));
         answerField.setBounds(280, 365, 420, 60);
 
+        scoreArea = new JTextArea();
+        scoreArea.setEditable(false);
+        scoreArea.setFocusable(false);
+        scoreArea.setOpaque(false);
+        scoreArea.setFont(new Font("SansSerif", Font.BOLD, 22));
+        scoreArea.setForeground(new Color(80, 40, 20));
+        scoreArea.setCaretColor(new Color(0, 0, 0, 0));
+        scoreArea.setBounds(45, 225, 180, 220);
+
         JButton submitBtn = createImageButton("/resources/submit.png", 350, 250);
         submitBtn.setBounds(310, 380, 350, 250);
 
@@ -314,6 +324,7 @@ public class BakeRaceClientFrame extends JFrame {
         panel.add(timerLabel);
         panel.add(questionArea);
         panel.add(answerField);
+        panel.add(scoreArea);
         panel.add(submitBtn);
         panel.add(leaveBtn);
 
@@ -326,8 +337,8 @@ public class BakeRaceClientFrame extends JFrame {
 
     public void showRoundOne() {
         SwingUtilities.invokeLater(() -> {
-            String question =
-                    "I am white powder used in baking.\n"
+            String question
+                    = "I am white powder used in baking.\n"
                     + "Without me, cupcake batter cannot be made.\n\n"
                     + "What am I?";
 
@@ -474,7 +485,40 @@ public class BakeRaceClientFrame extends JFrame {
         }
     }
 
+    public void showRoundTwo() {
+        SwingUtilities.invokeLater(() -> {
+            String question
+                    = "I spin fast and mix all the ingredients together.\n"
+                    + "Without me, the batter stays lumpy.\n\n"
+                    + "What am I?";
+
+            roundLabel.setText("Round 2 - Medium");
+            questionArea.setText(question);
+            answerField.setText("");
+            centerQuestionText();
+            startRoundOneTimer();
+        });
+    }
+
+    public void updateScores(String response) {
+        SwingUtilities.invokeLater(() -> {
+            String scoresText = response.replace("SCORES|", "");
+            String[] players = scoresText.split(",");
+
+            StringBuilder result = new StringBuilder();
+
+            for (String p : players) {
+                if (!p.trim().isEmpty()) {
+                    result.append(p.replace(":", " : ")).append("\n");
+                }
+            }
+
+            scoreArea.setText(result.toString());
+        });
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new BakeRaceClientFrame().setVisible(true));
     }
+
 }
