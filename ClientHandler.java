@@ -14,7 +14,7 @@ public class ClientHandler implements Runnable {
     private WaitingRoom waitingRoom;
     private String playerName;
 
-    private static final int MAX_PLAYERS = 1;
+    private static final int MAX_PLAYERS = 4;
     private static boolean timerStarted = false;
     private static int currentRound = 1;
     private static boolean roundAnswered = false;
@@ -31,64 +31,114 @@ public class ClientHandler implements Runnable {
         in = new BufferedReader(new InputStreamReader(client.getInputStream()));
         out = new PrintWriter(client.getOutputStream(), true);
     }
-@Override
-public void run() {
-    try {
-        String request;
 
-        while ((request = in.readLine()) != null) {
+    @Override
+    public void run() {
+        try {
+            String request;
 
-            if (request.startsWith("CONNECT|")) {
-                playerName = request.split("\\|")[1];
-                broadcastConnected();
+            while ((request = in.readLine()) != null) {
 
-            } else if (request.equals("PLAY")) {
-                waitingRoom.addPlayer(playerName);
-                broadcastWaiting();
+                if (request.startsWith("CONNECT|")) {
+                    playerName = request.split("\\|")[1];
+                    broadcastConnected();
 
-                if (waitingRoom.getPlayerCount() >= MAX_PLAYERS && !waitingRoom.isGameStarted()) {
-                    startGameRoundOne();
-                } else {
-                    startThirtySecondTimer();
-                }
+                } else if (request.equals("PLAY")) {
+                    waitingRoom.addPlayer(playerName);
+                    broadcastWaiting();
 
-            } else if (request.startsWith("ANSWER|")) {
-                checkAnswer(request);
+                    if (waitingRoom.getPlayerCount() >= MAX_PLAYERS && !waitingRoom.isGameStarted()) {
+                        startGameRoundOne();
+                    } else {
+                        startThirtySecondTimer();
+                    }
 
-            } else if (request.equals("LEAVE")) {
-                clients.remove(this);
-                waitingRoom.removePlayer(playerName);
-                scores.remove(playerName);
+                } else if (request.startsWith("ANSWER|")) {
+                    checkAnswer(request);
+                }else if (request.equals("TIME_UP")) {
 
-                broadcastConnected();
-                broadcastWaiting();
+    broadcast("GAME_ENDED|No winner");
 
-                if (waitingRoom.getPlayerCount() == 1) {
-                    String winner = waitingRoom.getPlayers();
-                    broadcast("GAME_ENDED|" + winner + " Wins!");
-                }
+    waitingRoom.setGameStarted(false);
 
-                client.close();
-                break;
-            }
-        }
+    timerStarted = false;
+}
+                
 
-    } catch (IOException e) {
-        clients.remove(this);
-        waitingRoom.removePlayer(playerName);
-        scores.remove(playerName);
+                // =========================
+                // CONNECTED LIST REMOVE
+                // =========================
+        else if (request.equals("LEAVE")) {
 
-        broadcastConnected();
-        broadcastWaiting();
+    clients.remove(this);
 
-        if (waitingRoom.getPlayerCount() == 1) {
-            String winner = waitingRoom.getPlayers();
-            broadcast("GAME_ENDED|" + winner + " Wins!");
-        }
+    waitingRoom.removePlayer(playerName);
 
-        System.out.println("Client disconnected");
+    scores.remove(playerName);
+
+    broadcastScores();
+
+    broadcastConnected();
+
+    broadcastWaiting();
+
+    broadcast(playerName + " left the game");
+
+    if (waitingRoom.getPlayerCount() == 1
+            && waitingRoom.isGameStarted()) {
+
+        String lastPlayer =
+                waitingRoom.getPlayers().trim();
+
+        broadcast(
+                "GAME_ENDED|" + lastPlayer
+        );
+
+        waitingRoom.setGameStarted(false);
+
+        timerStarted = false;
     }
-} 
+
+    client.close();
+
+    break;
+}
+            }
+
+} catch (IOException e) {
+
+    clients.remove(this);
+
+    waitingRoom.removePlayer(playerName);
+
+    scores.remove(playerName);
+
+    broadcastScores();
+
+    broadcastConnected();
+
+    broadcastWaiting();
+
+    broadcast(playerName + " disconnected");
+
+    if (waitingRoom.getPlayerCount() == 1
+            && waitingRoom.isGameStarted()) {
+
+        String lastPlayer =
+                waitingRoom.getPlayers().trim();
+
+        broadcast(
+                "GAME_ENDED|" + lastPlayer
+        );
+
+        waitingRoom.setGameStarted(false);
+
+        timerStarted = false;
+    }
+
+    System.out.println("Client disconnected");
+}
+    }
 
 private void checkAnswer(String request) {
 
@@ -225,24 +275,42 @@ if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
         }).start();
     }
 
-    private void startGameRoundOne() {
-        if (waitingRoom.isGameStarted()) {
-            return;
-        }
+private void startGameRoundOne() {
 
-        waitingRoom.setGameStarted(true);
-        currentRound = 1;
-        roundAnswered = false;
-        scores.clear();
-
-        for (ClientHandler c : clients) {
-            if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
-                c.out.println("GAME_STARTED");
-                c.out.println("ROUND1");
-            }
-        }
+    if (waitingRoom.isGameStarted()) {
+        return;
     }
 
+    waitingRoom.setGameStarted(true);
+
+    currentRound = 1;
+
+    roundAnswered = false;
+
+    scores.clear();
+
+String[] players =
+        waitingRoom.getPlayers().split(",");
+
+for (String player : players) {
+
+    if (!player.trim().isEmpty()) {
+
+        scores.put(player.trim(), 0);
+    }
+}
+
+    for (ClientHandler c : clients) {
+
+        if (c.playerName != null
+                && waitingRoom.getPlayers().contains(c.playerName)) {
+
+            c.out.println("GAME_STARTED");
+
+            c.out.println("ROUND1");
+        }
+    }
+}
     private void broadcast(String message) {
         for (ClientHandler c : clients) {
             if (c.playerName != null) {
@@ -270,29 +338,72 @@ if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
             }
         }
     }
-    private String getWinner() {
+private String getWinner() {
 
-    String winner = "";
+    ArrayList<String> ranking =
+            new ArrayList<>(scores.keySet());
 
-    int highestScore = -1;
+    ranking.sort((p1, p2)
+            -> scores.get(p2) - scores.get(p1));
 
-    for (String name : scores.keySet()) {
 
-        int score = scores.get(name);
 
-        if (score > highestScore) {
+    if (ranking.isEmpty()) {
 
-            highestScore = score;
+        return "No winner";
+    }
 
-            winner = name;
+
+
+    int topScore =
+            scores.get(ranking.get(0));
+
+
+
+    if (topScore == 0) {
+
+        return "No winner";
+    }
+
+
+
+    int sameTop = 0;
+
+    for (String player : ranking) {
+
+        if (scores.get(player) == topScore) {
+
+            sameTop++;
         }
     }
 
-    if (winner.isEmpty()) {
 
-        return "No Winner";
+
+    if (sameTop > 1) {
+
+        return "No winner";
     }
 
-    return winner + " Wins!";
+
+
+    StringBuilder result =
+            new StringBuilder();
+
+
+
+    for (int i = 0;
+            i < ranking.size() && i < 3;
+            i++) {
+
+        result.append(ranking.get(i));
+        
+if (i < ranking.size() - 1
+        && i < 2) {
+
+    result.append("\n");
+}
+    }
+
+    return result.toString();
 }
 }
