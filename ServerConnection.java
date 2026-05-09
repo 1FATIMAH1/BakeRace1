@@ -3,7 +3,7 @@ package bakerace;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.Socket;
-import javax.swing.JOptionPane;
+
 public class ServerConnection implements Runnable {
 
     private Socket server;
@@ -54,19 +54,11 @@ public class ServerConnection implements Runnable {
                        frame.showCorrectAnswer(playerName);
 
                 } else if (response.startsWith("SCORES|")) {
-       frame.updateScores(response);
+                       frame.updateScores(response);
 
-} else if (response.contains("left the game")
-        || response.contains("disconnected")) {
-
-    JOptionPane.showMessageDialog(
-            null,
-            response
-    );
-
-} else if (response.startsWith("GAME_ENDED")) {
-       frame.showWinner(response);
-}
+                } else if (response.startsWith("GAME_ENDED")) {
+                       frame.showWinner(response);
+                }
             }
 
         } catch (Exception e) {
