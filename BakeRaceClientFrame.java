@@ -298,7 +298,7 @@ exitBtn.addActionListener(e -> {
         BackgroundPanel panel = new BackgroundPanel("/resources/game_bg.png");
         panel.setLayout(null);
 
-        roundLabel = new JLabel("Round 1 - Easy");
+        roundLabel = new JLabel("Round 1");
         roundLabel.setBounds(330, 140, 300, 40);
         roundLabel.setHorizontalAlignment(SwingConstants.CENTER);
         roundLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
