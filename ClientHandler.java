@@ -1,625 +1,306 @@
 package bakerace;
 
-import javax.swing.*;
-import java.awt.*;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
+import java.util.ArrayList;
+import java.util.HashMap;
 
-public class BakeRaceClientFrame extends JFrame {
+public class ClientHandler implements Runnable {
 
-    private CardLayout cardLayout;
-    private JPanel mainPanel;
-
-    private JTextField nameField;
-    private JTextArea messagesArea;
-
-    private JLabel[] playerLabels;
-    private JLabel waitingTitle;
-    private JLabel winnerLabel;
-    private JPanel connectedNamesPanel;
-
-    private JTextPane questionArea;
-    private JLabel roundLabel;
-    private JLabel timerLabel;
-    private JTextArea scoreArea;
-    private JTextField answerField;
-    private Timer roundTimer;
-    private int timeLeft = 15;
-
+    private Socket client;
+    private BufferedReader in;
     private PrintWriter out;
-    private Clip currentClip;
+    private ArrayList<ClientHandler> clients;
+    private WaitingRoom waitingRoom;
+    private String playerName;
 
- 
-    public BakeRaceClientFrame() {
-        setTitle("BakeRace");
-        setSize(1000, 650);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        setResizable(false);
+    private static final int MAX_PLAYERS = 4;
+    private static boolean timerStarted = false;
+    private static int currentRound = 1;
+    private static boolean roundAnswered = false;
+    private static HashMap<String, Integer> scores = new HashMap<>();
 
-        cardLayout = new CardLayout();
-        mainPanel = new JPanel(cardLayout);
+    public ClientHandler(Socket socket,
+            ArrayList<ClientHandler> clients,
+            WaitingRoom waitingRoom) throws IOException {
 
-        mainPanel.add(createIntroPanel(), "INTRO");
-        mainPanel.add(createConnectPanel(), "CONNECT");
-        mainPanel.add(createConnectedListPanel(), "CONNECTED_LIST");
-        mainPanel.add(createWaitingPanel(), "WAITING");
-        mainPanel.add(createGamePanel(), "GAME");
-        mainPanel.add(createWinnerPanel(), "WINNER");
-        mainPanel.add(createGameEndPanel(), "GAME_END");
+        this.client = socket;
+        this.clients = clients;
+        this.waitingRoom = waitingRoom;
 
-        add(mainPanel);
-
-        connectToServer();
-        cardLayout.show(mainPanel, "INTRO");
-        playSound("/resources/hello.wav");
+        in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+        out = new PrintWriter(client.getOutputStream(), true);
     }
 
-    private void playSound(String path) {
+    @Override
+    public void run() {
         try {
-            stopCurrentSound();
+            String request;
 
-            java.net.URL soundURL = getClass().getResource(path);
-            if (soundURL == null) {
-                System.out.println("SOUND NOT FOUND: " + path);
-                return;
-            }
+            while ((request = in.readLine()) != null) {
 
-            AudioInputStream audio = AudioSystem.getAudioInputStream(soundURL);
-            currentClip = AudioSystem.getClip();
-            currentClip.open(audio);
-            currentClip.start();
+                if (request.startsWith("CONNECT|")) {
+                    playerName = request.split("\\|")[1];
+                    broadcastConnected();
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+                } else if (request.equals("PLAY")) {
+                    waitingRoom.addPlayer(playerName);
+                    broadcastWaiting();
 
-    private void stopCurrentSound() {
-        try {
-            if (currentClip != null) {
-                if (currentClip.isRunning()) {
-                    currentClip.stop();
+                    if (waitingRoom.getPlayerCount() >= MAX_PLAYERS && !waitingRoom.isGameStarted()) {
+                        startGameRoundOne();
+                    } else {
+                        startThirtySecondTimer();
+                    }
+
+                } else if (request.startsWith("ANSWER|")) {
+                    checkAnswer(request);
+
                 }
-                currentClip.close();
-                currentClip = null;
+
+                // =========================
+                // CONNECTED LIST REMOVE
+                // =========================
+                else if (request.equals("LEAVE")) {
+
+                    clients.remove(this);
+
+                    waitingRoom.removePlayer(playerName);
+
+                    scores.remove(playerName);
+
+                    broadcastConnected();
+
+                    broadcastWaiting();
+
+                    client.close();
+
+                    break;
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void connectToServer() {
-        try {
-            Socket socket = new Socket("localhost", 9090);
-            out = new PrintWriter(socket.getOutputStream(), true);
-
-            ServerConnection sc = new ServerConnection(socket, this);
-            new Thread(sc).start();
 
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Could not connect to server.",
-                    "Connection Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+
+            // =========================
+            // DISCONNECTED PLAYER
+            // =========================
+            clients.remove(this);
+
+            waitingRoom.removePlayer(playerName);
+
+            scores.remove(playerName);
+
+            broadcastConnected();
+
+            broadcastWaiting();
+
+            System.out.println("Client disconnected");
         }
     }
 
-    private JPanel createIntroPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/logo_bg .PNG");
-        panel.setLayout(null);
+private void checkAnswer(String request) {
 
-        JButton startButton = createImageButton("/resources/start.btn.png", 420, 300);
-        startButton.setBounds(300, 350, 420, 300);
+    if (currentRound == 1) {
+        checkRoundOneAnswer(request);
 
-        startButton.addActionListener(e -> {
-            stopCurrentSound();
-            cardLayout.show(mainPanel, "CONNECT");
-            playSound("/resources/intro.wav");
-        });
+    } else if (currentRound == 2) {
+        checkRoundTwoAnswer(request);
 
-        panel.add(startButton);
-        return panel;
+    } else if (currentRound == 3) {
+        checkRoundThreeAnswer(request);
     }
-
-    private JPanel createConnectPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/connect_bg.png");
-        panel.setLayout(null);
-
-        nameField = new JTextField();
-        nameField.setFont(new Font("SansSerif", Font.BOLD, 20));
-        nameField.setHorizontalAlignment(JTextField.LEFT);
-        nameField.setBounds(350, 270, 365, 55);
-        nameField.setOpaque(true);
-        nameField.setBackground(Color.WHITE);
-        nameField.setForeground(Color.BLACK);
-        nameField.setCaretColor(Color.BLACK);
-        nameField.setBorder(BorderFactory.createLineBorder(new Color(180, 180, 180), 2));
-        nameField.setMargin(new Insets(0, 70, 0, 0));
-
-        messagesArea = new JTextArea();
-        messagesArea.setEditable(false);
-        messagesArea.setFont(new Font("SansSerif", Font.BOLD, 16));
-        messagesArea.setOpaque(false);
-        messagesArea.setBackground(new Color(0, 0, 0, 0));
-        messagesArea.setBorder(null);
-
-        JButton connectBtn = createImageButton("/resources/connect.btn.PNG", 350, 350);
-        connectBtn.setBounds(320, 260, 350, 350);
-
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-
-        connectBtn.addActionListener(e -> {
-            String name = nameField.getText().trim();
-
-            if (name.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please enter your name.");
-                return;
-            }
-
-            if (out != null) {
-                out.println("CONNECT|" + name);
-                messagesArea.setText("Connected as: " + name);
-            }
-
-            cardLayout.show(mainPanel, "CONNECTED_LIST");
-        });
-
-exitBtn.addActionListener(e -> {
-
-    if (out != null) {
-
-        out.println("LEAVE");
-    }
-
-    dispose();
-
-    System.exit(0);
-});
-
-        panel.add(nameField);
-        panel.add(connectBtn);
-        panel.add(exitBtn);
-
-        return panel;
-    }
-
-    private JPanel createConnectedListPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/connectedList.png");
-        panel.setLayout(null);
-
-        connectedNamesPanel = new JPanel();
-        connectedNamesPanel.setLayout(new BoxLayout(connectedNamesPanel, BoxLayout.Y_AXIS));
-        connectedNamesPanel.setOpaque(false);
-
-        JScrollPane scrollPane = new JScrollPane(connectedNamesPanel);
-        scrollPane.setBounds(310, 230, 420, 270);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(null);
-        scrollPane.setBackground(new Color(0, 0, 0, 0));
-
-        JButton playBtn = createImageButton("/resources/Play.btn.png", 350, 270);
-        playBtn.setBounds(310, 380, 350, 270);
-
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-
-        playBtn.addActionListener(e -> {
-            if (out != null) {
-                out.println("PLAY");
-            }
-            cardLayout.show(mainPanel, "WAITING");
-        });
-
-exitBtn.addActionListener(e -> {
-
-    if (out != null) {
-
-        out.println("LEAVE");
-    }
-
-    dispose();
-
-    System.exit(0);
-});
-
-        panel.add(scrollPane);
-        panel.add(playBtn);
-        panel.add(exitBtn);
-
-        return panel;
-    }
-
-    private JPanel createWaitingPanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/waitingRoom.PNG");
-        panel.setLayout(null);
-
-        waitingTitle = new JLabel("Waiting Bakers:");
-        waitingTitle.setBounds(365, 225, 330, 40);
-        waitingTitle.setFont(new Font("SansSerif", Font.BOLD, 26));
-        waitingTitle.setForeground(Color.WHITE);
-
-        playerLabels = new JLabel[5];
-        int startX = 350;
-        int startY = 280;
-        int gap = 54;
-
-        for (int i = 0; i < playerLabels.length; i++) {
-            playerLabels[i] = new JLabel("");
-            playerLabels[i].setBounds(startX, startY + (i * gap), 250, 30);
-            playerLabels[i].setFont(new Font("SansSerif", Font.BOLD, 22));
-            playerLabels[i].setForeground(Color.WHITE);
-            panel.add(playerLabels[i]);
-        }
-
-        JButton playBtn = createImageButton("/resources/Play.btn.png", 350, 270);
-        playBtn.setBounds(310, 380, 350, 270);
-
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-
-        playBtn.addActionListener(e -> {
-            if (out != null) {
-                out.println("PLAY");
-            }
-        });
-
-exitBtn.addActionListener(e -> {
-
-    if (out != null) {
-
-        out.println("LEAVE");
-    }
-
-    dispose();
-
-    System.exit(0);
-});
-
-        panel.add(waitingTitle);
-        panel.add(playBtn);
-        panel.add(exitBtn);
-
-        return panel;
-    }
-
-    private JPanel createGamePanel() {
-        BackgroundPanel panel = new BackgroundPanel("/resources/game_bg.png");
-        panel.setLayout(null);
-
-        roundLabel = new JLabel("Round 1 - Easy");
-        roundLabel.setBounds(330, 140, 300, 40);
-        roundLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        roundLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
-        roundLabel.setForeground(new Color(80, 40, 20));
-
-        timerLabel = new JLabel("15");
-        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 46));
-        timerLabel.setBounds(830, 45, 200, 50);
-        timerLabel.setForeground(Color.BLACK);
-
-        questionArea = new JTextPane();
-        questionArea.setText("");
-        questionArea.setEditable(false);
-        questionArea.setOpaque(false);
-        questionArea.setFont(new Font("SansSerif", Font.BOLD, 22));
-        questionArea.setForeground(new Color(50, 25, 10));
-        questionArea.setBounds(230, 220, 520, 140);
-        centerQuestionText();
-
-        answerField = new JTextField();
-        answerField.setFont(new Font("SansSerif", Font.BOLD, 22));
-        answerField.setBounds(280, 365, 420, 60);
-
-        scoreArea = new JTextArea();
-        scoreArea.setEditable(false);
-        scoreArea.setFocusable(false);
-        scoreArea.setOpaque(false);
-        scoreArea.setFont(new Font("SansSerif", Font.BOLD, 22));
-        scoreArea.setForeground(new Color(80, 40, 20));
-        scoreArea.setCaretColor(new Color(0, 0, 0, 0));
-        scoreArea.setBounds(45, 225, 180, 220);
-
-        JButton submitBtn = createImageButton("/resources/submit.png", 350, 250);
-        submitBtn.setBounds(310, 380, 350, 250);
-
-        JButton leaveBtn = createImageButton("/resources/leave.png", 260, 180);
-        leaveBtn.setBounds(770, 480, 250, 180);
-
-        submitBtn.addActionListener(e -> {
-            String answer = answerField.getText().trim();
-
-            if (!answer.isEmpty() && out != null) {
-                out.println("ANSWER|" + answer);
-                answerField.setText("");
-            }
-        });
-
-        leaveBtn.addActionListener(e -> {
-            if (out != null) {
-                out.println("LEAVE");
-            }
-            System.exit(0);
-        });
-
-        panel.add(roundLabel);
-        panel.add(timerLabel);
-        panel.add(questionArea);
-        panel.add(answerField);
-        panel.add(scoreArea);
-        panel.add(submitBtn);
-        panel.add(leaveBtn);
-
-        return panel;
-    }
-
-    public void showGameStarted() {
-        SwingUtilities.invokeLater(() -> cardLayout.show(mainPanel, "GAME"));
-    }
-
-    public void showRoundOne() {
-        SwingUtilities.invokeLater(() -> {
-            String question
-                    = "I am white powder used in baking.\n"
-                    + "Without me, cupcake batter cannot be made.\n\n"
-                    + "What am I?";
-
-            roundLabel.setText("Round 1 - Easy");
-            questionArea.setText(question);
-            centerQuestionText();
-            answerField.setText("");
-            startRoundOneTimer();
-        });
-    }
-
-    public void showCorrectAnswer(String playerName) {
-        SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(this, playerName + " answered correctly!");
-        });
-    }
-
-    private void centerQuestionText() {
-        StyledDocument doc = questionArea.getStyledDocument();
-        SimpleAttributeSet center = new SimpleAttributeSet();
-        StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
-        doc.setParagraphAttributes(0, doc.getLength(), center, false);
-    }
-
-    private void startRoundOneTimer() {
-        if (roundTimer != null) {
-            roundTimer.stop();
-        }
-
-        timeLeft = 15;
-        timerLabel.setText(String.valueOf(timeLeft));
-        timerLabel.setForeground(Color.BLACK);
-
-        roundTimer = new Timer(1000, e -> {
-            timeLeft--;
-            timerLabel.setText(String.valueOf(timeLeft));
-
-            if (timeLeft <= 5) {
-                timerLabel.setForeground(Color.RED);
-            } else {
-                timerLabel.setForeground(Color.BLACK);
-            }
-
-            if (timeLeft <= 0) {
-                roundTimer.stop();
-                JOptionPane.showMessageDialog(this, "Time is up!");
-            }
-        });
-
-        roundTimer.start();
-    }
-
-    public void updateConnected(String data) {
-        SwingUtilities.invokeLater(() -> {
-            String text = data.replace("CONNECTED|", "").trim();
-
-            String[] names;
-            if (text.isEmpty()) {
-                names = new String[0];
-            } else {
-                names = text.split(",");
-            }
-
-            connectedNamesPanel.removeAll();
-
-            for (String n : names) {
-                String name = n.trim();
-
-                if (!name.isEmpty()) {
-                    JLabel label = new JLabel("   " + name);
-                    label.setFont(new Font("SansSerif", Font.BOLD, 28));
-                    label.setForeground(new Color(35, 15, 5));
-                    label.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    label.setBorder(BorderFactory.createEmptyBorder(5, 40, 5, 5));
-
-                    connectedNamesPanel.add(label);
+}
+
+    private void checkRoundOneAnswer(String request) {
+        String answer = request.replace("ANSWER|", "").trim();
+
+        if (answer.equalsIgnoreCase("flour") && !roundAnswered) {
+            roundAnswered = true;
+            addScore(playerName);
+            broadcast("CORRECT|" + playerName);
+            broadcastScores();
+
+            currentRound = 2;
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(2000);
+                    roundAnswered = false;
+                    broadcast("ROUND2");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-            }
-
-            connectedNamesPanel.revalidate();
-            connectedNamesPanel.repaint();
-        });
-    }
-
-    public void updateWaiting(String data) {
-        SwingUtilities.invokeLater(() -> {
-            String text = data
-                    .replace("WAITING_LIST|", "")
-                    .replace("WAITING|", "")
-                    .trim();
-
-            String[] names;
-            if (text.isEmpty()) {
-                names = new String[0];
-            } else {
-                names = text.split(",");
-            }
-
-            if (playerLabels != null) {
-                for (int i = 0; i < playerLabels.length; i++) {
-                    playerLabels[i].setText("");
-                }
-
-                for (int i = 0; i < names.length && i < playerLabels.length; i++) {
-                    playerLabels[i].setText(names[i].trim());
-                }
-            }
-        });
-    }
-
-    private JButton createImageButton(String path, int width, int height) {
-        ImageIcon icon = loadIcon(path, width, height);
-        JButton button;
-
-        if (icon != null) {
-            button = new JButton(icon);
-        } else {
-            button = new JButton("Button");
+            }).start();
         }
-
-        button.setBorderPainted(false);
-        button.setContentAreaFilled(false);
-        button.setFocusPainted(false);
-        button.setOpaque(false);
-        return button;
     }
 
-    private ImageIcon loadIcon(String path, int width, int height) {
+    private void checkRoundTwoAnswer(String request) {
+        String answer = request.replace("ANSWER|", "").trim();
+
+if (answer.equalsIgnoreCase("mixer") && !roundAnswered) {
+
+    roundAnswered = true;
+    addScore(playerName);
+    broadcast("CORRECT|" + playerName);
+    broadcastScores();
+    currentRound = 3;
+    new Thread(() -> {
+
         try {
-            java.net.URL imgURL = getClass().getResource(path);
-            if (imgURL == null) {
-                System.out.println("IMAGE NOT FOUND: " + path);
-                return null;
-            }
+            Thread.sleep(2000);
+            roundAnswered = false;
+            broadcast("ROUND3");
 
-            ImageIcon originalIcon = new ImageIcon(imgURL);
-            Image scaledImage = originalIcon.getImage().getScaledInstance(
-                    width, height, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaledImage);
-
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
             e.printStackTrace();
-            return null;
+        }
+
+    }).start();
+}
+    }
+    private void checkRoundThreeAnswer(String request) {
+
+    String answer =
+            request.replace(
+                    "ANSWER|",
+                    ""
+            ).trim();
+
+    if (answer.equalsIgnoreCase("fridge")
+            && !roundAnswered) {
+
+        roundAnswered = true;
+
+        addScore(playerName);
+
+        broadcast(
+                "CORRECT|" + playerName
+        );
+
+        broadcastScores();
+
+        String winner =
+                getWinner();
+
+        broadcast(
+                "GAME_ENDED|" + winner
+        );
+    }
+}
+
+    private void broadcastConnected() {
+        StringBuilder names = new StringBuilder("CONNECTED|");
+
+        for (ClientHandler c : clients) {
+            if (c.playerName != null) {
+                names.append(c.playerName).append(",");
+            }
+        }
+
+        for (ClientHandler c : clients) {
+            c.out.println(names.toString());
         }
     }
 
-    public void showRoundTwo() {
-        SwingUtilities.invokeLater(() -> {
-            String question
-                    = "I spin fast and mix all the ingredients together.\n"
-                    + "Without me, the batter stays lumpy.\n\n"
-                    + "What am I?";
+    private void broadcastWaiting() {
+        String list = "WAITING|" + waitingRoom.getPlayers();
 
-            roundLabel.setText("Round 2");
-            questionArea.setText(question);
-            answerField.setText("");
-            centerQuestionText();
-            startRoundOneTimer();
-        });
-    }
-    public void showRoundThree() {
-
-    SwingUtilities.invokeLater(() -> {
-
-        String question
-                = "I keep cakes cold and fresh.\n"
-                + "Without me, frosting melts quickly.\n\n"
-                + "What am I?";
-
-        roundLabel.setText("Round 3 ");
-        questionArea.setText(question);
-        answerField.setText("");
-        centerQuestionText();
-        startRoundOneTimer();
-    });
-}
-
-    public void updateScores(String response) {
-        SwingUtilities.invokeLater(() -> {
-            String scoresText = response.replace("SCORES|", "");
-            String[] players = scoresText.split(",");
-
-            StringBuilder result = new StringBuilder();
-
-            for (String p : players) {
-                if (!p.trim().isEmpty()) {
-                    result.append(p.replace(":", " : ")).append("\n");
-                }
+        for (ClientHandler c : clients) {
+            if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
+                c.out.println(list);
             }
-
-            scoreArea.setText(result.toString());
-        });
-    }
-    public void showWinner(String response) {
-    String result = response.replace("GAME_ENDED|", "");
-
-    if (result.toLowerCase().contains("no winner")) {
-        cardLayout.show(mainPanel, "GAME_END");
-    } else {
-        winnerLabel.setText(result);
-        cardLayout.show(mainPanel, "WINNER");
-    }
-}
-    private JPanel createWinnerPanel() {
-    BackgroundPanel panel = new BackgroundPanel("/resources/winner.png");
-    panel.setLayout(null);
-
-    winnerLabel = new JLabel("");
-    winnerLabel.setBounds(250, 500, 500, 60);
-    winnerLabel.setFont(new Font("SansSerif", Font.BOLD, 34));
-    winnerLabel.setForeground(Color.WHITE);
-    winnerLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-    panel.add(winnerLabel);
-
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-    exitBtn.addActionListener(e -> System.exit(0));
-
-    panel.add(exitBtn);
-    return panel;
-}
-private JPanel createGameEndPanel() {
-    BackgroundPanel panel = new BackgroundPanel("/resources/gameEnd.png");
-    panel.setLayout(null);
-
-    JLabel noWinner = new JLabel("No Winner!");
-    noWinner.setBounds(250, 500, 500, 60);
-    noWinner.setFont(new Font("SansSerif", Font.BOLD, 34));
-    noWinner.setForeground(Color.WHITE);
-    noWinner.setHorizontalAlignment(SwingConstants.CENTER);
-
-    panel.add(noWinner);
-
-        JButton exitBtn = createImageButton("/resources/exit.png", 220, 180);
-        exitBtn.setBounds(770, 480, 220, 180);
-    exitBtn.addActionListener(e -> System.exit(0));
-
-    panel.add(exitBtn);
-    return panel;
-}
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new BakeRaceClientFrame().setVisible(true));
+        }
     }
 
+    private void startThirtySecondTimer() {
+        if (timerStarted || waitingRoom.isGameStarted()) {
+            return;
+        }
+
+        timerStarted = true;
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(30000);
+
+                if (waitingRoom.getPlayerCount() > 1 && !waitingRoom.isGameStarted()) {
+                    startGameRoundOne();
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void startGameRoundOne() {
+        if (waitingRoom.isGameStarted()) {
+            return;
+        }
+
+        waitingRoom.setGameStarted(true);
+        currentRound = 1;
+        roundAnswered = false;
+        scores.clear();
+
+        for (ClientHandler c : clients) {
+            if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
+                c.out.println("GAME_STARTED");
+                c.out.println("ROUND1");
+            }
+        }
+    }
+
+    private void broadcast(String message) {
+        for (ClientHandler c : clients) {
+            if (c.playerName != null) {
+                c.out.println(message);
+            }
+        }
+
+    }
+
+    private void addScore(String name) {
+        int newScore = scores.getOrDefault(name, 0) + 1;
+        scores.put(name, newScore);
+    }
+
+    private void broadcastScores() {
+        StringBuilder scoreMessage = new StringBuilder("SCORES|");
+
+        for (String name : scores.keySet()) {
+            scoreMessage.append(name).append(":").append(scores.get(name)).append(",");
+        }
+
+        for (ClientHandler c : clients) {
+            if (c.playerName != null && waitingRoom.getPlayers().contains(c.playerName)) {
+                c.out.println(scoreMessage.toString());
+            }
+        }
+    }
+    private String getWinner() {
+
+    String winner = "";
+
+    int highestScore = -1;
+
+    for (String name : scores.keySet()) {
+
+        int score = scores.get(name);
+
+        if (score > highestScore) {
+
+            highestScore = score;
+
+            winner = name;
+        }
+    }
+
+    if (winner.isEmpty()) {
+
+        return "No Winner";
+    }
+
+    return winner + " Wins!";
 }
-
-
-
-
+}
