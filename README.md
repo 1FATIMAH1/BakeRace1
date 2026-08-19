@@ -87,9 +87,9 @@ BakeRace follows a client-server design:
 
 ## Team
 
-**Idea Owner:** Fatimah Alzeer  
-
 **Team Members:**
+
+Project Leader: Fatimah Alzeer
 - Noura bin Moammar
 - Bateel Almojel
 - Taif Alqahtani
